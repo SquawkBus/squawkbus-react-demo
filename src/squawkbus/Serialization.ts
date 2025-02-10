@@ -116,7 +116,7 @@ export class DataReader {
 
   readBuffer(): Uint8Array {
     const length = this.readUInt32()
-    const buf = new Uint8Array(this.buf.buffer, this.offset, length)
+    const buf = this.buf.slice(this.offset, this.offset + length)
     this.offset += length
     return buf
   }
