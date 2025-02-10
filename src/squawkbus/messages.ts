@@ -1,6 +1,7 @@
 import { DataReader, DataWriter } from './Serialization'
+import { DataPacketObj } from './types'
 
-enum MessageType {
+export enum MessageType {
   AuthenticationRequest = 1,
   AuthenticationResponse = 2,
   MulticastData = 3,
@@ -44,6 +45,15 @@ export class DataPacket {
     const data = reader.readBuffer()
     return new DataPacket(name, entitlement, contentType, data)
   }
+
+  toObj(): DataPacketObj {
+    return {
+      name: this.name,
+      entitlement: this.entitlement,
+      contentType: this.contentType,
+      data: this.data.buffer
+    }
+  }
 }
 
 function serializeDataPackets(
@@ -73,9 +83,11 @@ export abstract class Message {
     this.messageType = messageType
   }
 
-  serialize(writer: DataWriter) {
+  serialize(): ArrayBuffer {
+    const writer = new DataWriter()
     writer.writeByte(this.messageType)
     this.serializeBody(writer)
+    return writer.toBuffer()
   }
 
   protected abstract serializeBody(writer: DataWriter): void
