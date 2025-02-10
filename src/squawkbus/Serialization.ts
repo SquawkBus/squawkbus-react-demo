@@ -116,13 +116,13 @@ export class DataReader {
 
   readBuffer(): Uint8Array {
     const length = this.readUInt32()
-    const buf = new Uint8Array(this.buf, this.offset, length)
+    const buf = new Uint8Array(this.buf.buffer, this.offset, length)
     this.offset += length
     return buf
   }
 
   readString(): string {
     const buf = this.readBuffer()
-    return DataReader.textDecoder.decode(buf.buffer)
+    return DataReader.textDecoder.decode(buf)
   }
 }

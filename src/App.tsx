@@ -1,35 +1,60 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useEffect, useState } from 'react'
 
-function App() {
-  const [count, setCount] = useState(0)
+import { useSquawkbus, AuthenticationState, ConnectionState } from './squawkbus'
+
+export default function App() {
+  const {
+    clientId,
+    connectionState,
+    authenticationState,
+    data,
+    notification,
+    subscribe
+  } = useSquawkbus('ws://localhost:8559')
+  const [subscriptions, setSubscriptions] = useState<string[]>([])
+
+  useEffect(() => {
+    console.log(
+      clientId,
+      connectionState,
+      authenticationState,
+      data,
+      notification
+    )
+  }, [clientId, connectionState, authenticationState, data, notification])
+
+  useEffect(() => {
+    if (
+      !(
+        connectionState === ConnectionState.OPEN &&
+        authenticationState == AuthenticationState.SUCCESS
+      )
+    ) {
+      return
+    }
+
+    if (!subscriptions.includes('foo')) {
+      console.log('Subscribing to foo')
+      setSubscriptions(subscriptions => [...subscriptions, 'foo'])
+      subscribe('foo')
+    }
+  }, [authenticationState, connectionState, subscribe, subscriptions])
 
   return (
     <>
+      <p>Example</p>
       <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+        <span>Connection State</span>
+        {connectionState}
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
+      <div>
+        <span>Authentication State</span>
+        {authenticationState}
       </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
+      <div>
+        <span>Client Id</span>
+        {clientId}
+      </div>
     </>
   )
 }
-
-export default App

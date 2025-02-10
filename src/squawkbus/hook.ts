@@ -12,22 +12,23 @@ import {
   NotificationRequest,
   SubscriptionRequest,
   UnicastData
-} from './Messages'
+} from './messages'
 import { DataMessageObj, NotificationObj } from './types'
+import { DataReader } from './Serialization'
 
 export enum ConnectionState {
-  PENDING = 0,
-  CONNECTING = 1,
-  OPEN = 2,
-  CLOSING = 3,
-  CLOSED = 4
+  PENDING = 'PENDING',
+  CONNECTING = 'CONNECTING',
+  OPEN = 'OPEN',
+  CLOSING = 'CLOSING',
+  CLOSED = 'CLOSED'
 }
 
 export enum AuthenticationState {
-  PENDING = 0,
-  REQUEST = 1,
-  SUCCESS = 2,
-  FAILURE = 3
+  PENDING = 'PENDING',
+  REQUEST = 'REQUEST',
+  SUCCESS = 'SUCCESS',
+  FAILURE = 'FAILURE'
 }
 
 export type Options = {
@@ -49,6 +50,7 @@ export type Unlisten = (pattern: string) => void
 export type WebHookOutputs = {
   clientId: string | null
   connectionState: ConnectionState
+  authenticationState: AuthenticationState
   data: DataMessageObj | null
   notification: NotificationObj | null
   send: Send
@@ -130,12 +132,12 @@ export const useSquawkbus = (
       setConnectionState(ConnectionState.OPEN)
 
       const authenticationRequest = new AuthenticationRequest(
-        options?.credentials ? 'none' : 'basic',
+        options?.credentials ? 'basic' : 'none',
         createAuthenticationToken(options?.credentials)
       )
 
-      webSocketRef.current?.send(authenticationRequest.serialize())
       setAuthenticationState(AuthenticationState.REQUEST)
+      webSocketRef.current?.send(authenticationRequest.serialize())
     },
     [webSocketRef, options]
   )
@@ -145,73 +147,66 @@ export const useSquawkbus = (
     setConnectionState(ConnectionState.CLOSED)
   }, [])
 
-  // An error is a special type of close.
+  // Error handler: error is a special type of close.
   const handleError = useCallback((event: Event) => {
-    console.log(`error: ${event.type}`)
+    console.log(`close: ${event.type}`)
     setConnectionState(ConnectionState.CLOSED)
   }, [])
 
-  const handleMessage = useCallback(
-    (event: MessageEvent) => {
-      console.log(`message: ${event.type}`)
+  // Message handler.
+  const handleMessage = useCallback((event: MessageEvent) => {
+    console.log(`message: ${event.type}`)
 
-      const message = Message.deserialize(event.data)
+    const reader = new DataReader(new Uint8Array(event.data))
+    const message = Message.deserialize(reader)
 
-      if (authenticationState == AuthenticationState.REQUEST) {
-        if (message.messageType == MessageType.AuthenticationResponse) {
-          const authenticationResponse = message as AuthenticationResponse
-          setClientId(authenticationResponse.clientId)
-        } else {
-          webSocketRef.current?.close()
-          setConnectionState(ConnectionState.CLOSING)
-          throw new Error('expected authentication response')
+    switch (message.messageType) {
+      case MessageType.AuthenticationResponse:
+        {
+          const msg = message as AuthenticationResponse
+          setClientId(msg.clientId)
+          setAuthenticationState(AuthenticationState.SUCCESS)
         }
-      } else if (authenticationState == AuthenticationState.SUCCESS) {
-        switch (message.messageType) {
-          case MessageType.ForwardedMulticastData:
-            {
-              const msg = message as ForwardedMulticastData
-              setData({
-                host: msg.host,
-                user: msg.user,
-                topic: msg.topic,
-                dataPackets: msg.dataPackets.map(x => x.toObj())
-              })
-            }
-            break
-          case MessageType.ForwardedUnicastData:
-            {
-              const msg = message as ForwardedUnicastData
-              setData({
-                host: msg.host,
-                user: msg.user,
-                topic: msg.topic,
-                dataPackets: msg.dataPackets.map(x => x.toObj())
-              })
-            }
-            break
-          case MessageType.ForwardedSubscriptionRequest:
-            {
-              const msg = message as ForwardedSubscriptionRequest
-              stetNotification({
-                host: msg.host,
-                user: msg.user,
-                clientId: msg.clientId,
-                topic: msg.topic,
-                isAdd: msg.isAdd
-              })
-            }
-            break
-          default:
-            console.log('invalid message')
-            throw new Error('invalid message')
+        break
+      case MessageType.ForwardedMulticastData:
+        {
+          const msg = message as ForwardedMulticastData
+          setData({
+            host: msg.host,
+            user: msg.user,
+            topic: msg.topic,
+            dataPackets: msg.dataPackets.map(x => x.toObj())
+          })
         }
-      } else {
-        // Authentication has failed
-      }
-    },
-    [authenticationState]
-  )
+        break
+      case MessageType.ForwardedUnicastData:
+        {
+          const msg = message as ForwardedUnicastData
+          setData({
+            host: msg.host,
+            user: msg.user,
+            topic: msg.topic,
+            dataPackets: msg.dataPackets.map(x => x.toObj())
+          })
+        }
+        break
+      case MessageType.ForwardedSubscriptionRequest:
+        {
+          const msg = message as ForwardedSubscriptionRequest
+          stetNotification({
+            host: msg.host,
+            user: msg.user,
+            clientId: msg.clientId,
+            topic: msg.topic,
+            isAdd: msg.isAdd
+          })
+        }
+        break
+      default:
+        console.log('invalid message')
+        throw new Error('invalid message')
+    }
+  }, [])
 
   useEffect(() => {
     if (connectionState !== ConnectionState.PENDING) {
@@ -219,6 +214,7 @@ export const useSquawkbus = (
     }
 
     webSocketRef.current = new WebSocket(url)
+    webSocketRef.current.binaryType = 'arraybuffer'
     webSocketRef.current.onopen = handleOpen
     webSocketRef.current.onclose = handleClose
     webSocketRef.current.onerror = handleError
@@ -240,6 +236,7 @@ export const useSquawkbus = (
   return {
     clientId,
     connectionState,
+    authenticationState,
     data,
     notification,
     send,
