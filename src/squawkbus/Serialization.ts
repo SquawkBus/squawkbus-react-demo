@@ -1,14 +1,17 @@
 const SIZEOF_BYTE: number = 1
 const SIZEOF_DWORD: number = 4
+const SIZEOF_QWORD: number = 8
 
 enum DataType {
   BYTE,
-  INT,
-  UINT,
+  INT32,
+  UINT32,
+  INT64,
+  UINT64,
   BUFFER
 }
 
-type DataValue = number | Uint8Array
+type DataValue = number | bigint | Uint8Array
 
 type DataItem = {
   type: DataType
@@ -33,12 +36,20 @@ export class DataWriter {
     this.writeByte(value ? 1 : 0)
   }
 
-  writeInt(value: number): void {
-    this.writeValue(value, DataType.INT, SIZEOF_DWORD)
+  writeInt32(value: number): void {
+    this.writeValue(value, DataType.INT32, SIZEOF_DWORD)
   }
 
-  writeUInt(value: number): void {
-    this.writeValue(value, DataType.UINT, SIZEOF_DWORD)
+  writeUInt32(value: number): void {
+    this.writeValue(value, DataType.UINT32, SIZEOF_DWORD)
+  }
+
+  writeInt64(value: bigint): void {
+    this.writeValue(value, DataType.INT64, SIZEOF_DWORD)
+  }
+
+  writeUInt64(value: bigint): void {
+    this.writeValue(value, DataType.UINT64, SIZEOF_DWORD)
   }
 
   writeString(value: string): void {
@@ -57,12 +68,18 @@ export class DataWriter {
       if (type === DataType.BYTE) {
         view.setUint8(byteOffset, value as number)
         byteOffset += SIZEOF_BYTE
-      } else if (type === DataType.INT) {
+      } else if (type === DataType.INT32) {
         view.setInt32(byteOffset, value as number, false)
         byteOffset += SIZEOF_DWORD
-      } else if (type === DataType.UINT) {
+      } else if (type === DataType.UINT32) {
         view.setUint32(byteOffset, value as number, false)
         byteOffset += SIZEOF_DWORD
+      } else if (type === DataType.INT64) {
+        view.setBigInt64(byteOffset, value as bigint, false)
+        byteOffset += SIZEOF_QWORD
+      } else if (type === DataType.UINT64) {
+        view.setBigUint64(byteOffset, value as bigint, false)
+        byteOffset += SIZEOF_QWORD
       } else if (type === DataType.BUFFER) {
         const byteArray = value as Uint8Array
         // length
@@ -111,6 +128,18 @@ export class DataReader {
   readUInt32(): number {
     const value = this.view.getUint32(this.offset, false)
     this.offset += SIZEOF_DWORD
+    return value
+  }
+
+  readInt64(): bigint {
+    const value = this.view.getBigInt64(this.offset, false)
+    this.offset += SIZEOF_QWORD
+    return value
+  }
+
+  readUInt64(): bigint {
+    const value = this.view.getBigUint64(this.offset, false)
+    this.offset += SIZEOF_QWORD
     return value
   }
 

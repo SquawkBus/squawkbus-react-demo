@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { DataPacket } from './dataPackets'
 import {
   AuthenticationRequest,
   AuthenticationResponse,
-  DataPacket,
   ForwardedMulticastData,
   ForwardedSubscriptionRequest,
   ForwardedUnicastData,
+  Heartbeat,
   Message,
   MessageType,
   MulticastData,
@@ -13,7 +14,7 @@ import {
   SubscriptionRequest,
   UnicastData
 } from './messages'
-import { DataMessageObj, NotificationObj } from './types'
+import { DataMessageObj, HeartbeatObj, NotificationObj } from './types'
 import { DataReader } from './Serialization'
 
 export enum ConnectionState {
@@ -53,6 +54,7 @@ export type WebHookOutputs = {
   authenticationState: AuthenticationState
   data: DataMessageObj | null
   notification: NotificationObj | null
+  heartbeat: HeartbeatObj | null
   send: Send
   publish: Publish
   subscribe: Subscribe
@@ -79,9 +81,10 @@ export const useSquawkbus = (
     useState<AuthenticationState>(AuthenticationState.PENDING)
   const [clientId, setClientId] = useState<string | null>(null)
   const [data, setData] = useState<DataMessageObj | null>(null)
-  const [notification, stetNotification] = useState<NotificationObj | null>(
+  const [notification, setNotification] = useState<NotificationObj | null>(
     null
   )
+  const [heartbeat, setHeartbeat] = useState<HeartbeatObj | null>(null)
 
   const send = useCallback(
     (clientId: string, topic: string, dataPackets: DataPacket[]) => {
@@ -193,12 +196,20 @@ export const useSquawkbus = (
       case MessageType.ForwardedSubscriptionRequest:
         {
           const msg = message as ForwardedSubscriptionRequest
-          stetNotification({
+          setNotification({
             host: msg.host,
             user: msg.user,
             clientId: msg.clientId,
             topic: msg.topic,
             isAdd: msg.isAdd
+          })
+        }
+        break
+      case MessageType.Heartbeat:
+        {
+          const msg = message as Heartbeat
+          setHeartbeat({
+            count: msg.count
           })
         }
         break
@@ -239,6 +250,7 @@ export const useSquawkbus = (
     authenticationState,
     data,
     notification,
+    heartbeat,
     send,
     publish,
     subscribe,

@@ -19,3 +19,7 @@ export type NotificationObj = {
   topic: string
   isAdd: boolean
 }
+
+export type HeartbeatObj = {
+  count: bigint
+}

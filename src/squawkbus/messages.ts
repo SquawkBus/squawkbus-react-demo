@@ -1,5 +1,5 @@
 import { DataReader, DataWriter } from './Serialization'
-import { DataPacketObj } from './types'
+import { DataPacket, deserializeDataPackets, serializeDataPackets } from './dataPackets'
 
 export enum MessageType {
   AuthenticationRequest = 1,
@@ -10,70 +10,8 @@ export enum MessageType {
   NotificationRequest = 6,
   SubscriptionRequest = 7,
   ForwardedMulticastData = 8,
-  ForwardedUnicastData = 9
-}
-
-export class DataPacket {
-  public name: string
-  public entitlement: number
-  public contentType: string
-  public data: Uint8Array
-
-  constructor(
-    name: string,
-    entitlement: number,
-    contentType: string,
-    data: Uint8Array
-  ) {
-    this.name = name
-    this.entitlement = entitlement
-    this.contentType = contentType
-    this.data = data
-  }
-
-  serialize(writer: DataWriter): void {
-    writer.writeString(this.name)
-    writer.writeInt(this.entitlement)
-    writer.writeString(this.contentType)
-    writer.writeBuffer(this.data)
-  }
-
-  static deserialize(reader: DataReader): DataPacket {
-    const name = reader.readString()
-    const entitlement = reader.readInt32()
-    const contentType = reader.readString()
-    const data = reader.readBuffer()
-    return new DataPacket(name, entitlement, contentType, data)
-  }
-
-  toObj(): DataPacketObj {
-    return {
-      name: this.name,
-      entitlement: this.entitlement,
-      contentType: this.contentType,
-      data: this.data.buffer
-    }
-  }
-}
-
-function serializeDataPackets(
-  dataPackets: DataPacket[],
-  writer: DataWriter
-): void {
-  writer.writeUInt(dataPackets.length)
-  for (const dataPacket of dataPackets) {
-    dataPacket.serialize(writer)
-  }
-}
-
-function deserializeDataPackets(reader: DataReader): DataPacket[] {
-  let length = reader.readUInt32()
-  const dataPackets = []
-  while (length > 0) {
-    dataPackets.push(DataPacket.deserialize(reader))
-    length -= 1
-  }
-  return dataPackets
+  ForwardedUnicastData = 9,
+  Heartbeat = 10
 }
 
 export abstract class Message {
@@ -111,6 +49,8 @@ export abstract class Message {
         return NotificationRequest.deserialize(reader)
       case MessageType.SubscriptionRequest:
         return SubscriptionRequest.deserialize(reader)
+      case MessageType.Heartbeat:
+        return Heartbeat.deserialize(reader)
       default:
         throw new Error('unhandled message type')
     }
@@ -263,6 +203,24 @@ export class ForwardedUnicastData extends Message {
     const topic = reader.readString()
     const dataPackets = deserializeDataPackets(reader)
     return new ForwardedUnicastData(host, user, clientId, topic, dataPackets)
+  }
+}
+
+export class Heartbeat extends Message {
+  public count: bigint
+
+  constructor(count: bigint) {
+    super(MessageType.Heartbeat)
+    this.count = count
+  }
+
+  protected serializeBody(writer: DataWriter): void {
+    writer.writeUInt64(this.count)
+  }
+
+  static deserialize(reader: DataReader): Heartbeat {
+    const count = reader.readUInt64()
+    return new Heartbeat(count)
   }
 }
 
