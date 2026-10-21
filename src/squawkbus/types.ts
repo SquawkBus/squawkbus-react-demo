@@ -2,7 +2,7 @@ export type DataPacketObj = {
   name: string
   entitlement: number
   contentType: string
-  data: ArrayBuffer
+  data: ArrayBufferLike
 }
 
 export type DataMessageObj = {
