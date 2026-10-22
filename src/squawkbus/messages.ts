@@ -31,8 +31,8 @@ export abstract class Message {
 
   protected abstract serializeBody(writer: DataWriter): void
 
-  static deserialize(reader: DataReader): Message {
-    
+  static deserialize(buf: Uint8Array): Message {
+    const reader = new DataReader(buf)
     const messageType: MessageType = reader.readByte()
 
     switch (messageType) {

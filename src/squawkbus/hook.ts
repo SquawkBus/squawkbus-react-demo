@@ -160,8 +160,7 @@ export const useSquawkbus = (
   const handleMessage = useCallback((event: MessageEvent) => {
     console.log(`message: ${event.type}`)
 
-    const reader = new DataReader(new Uint8Array(event.data))
-    const message = Message.deserialize(reader)
+    const message = Message.deserialize(new Uint8Array(event.data))
 
     switch (message.messageType) {
       case MessageType.AuthenticationResponse:

@@ -1,23 +1,20 @@
 import { expect, test } from 'vitest'
 
 import { AuthenticationRequest, AuthenticationResponse, ForwardedMulticastData } from "./messages"
-import { DataReader } from './DataReader'
 import { DataPacket } from './dataPackets'
 import { DataWriter } from './DataWriter'
 
 test('AuthenticationRequest', () => {
     const original = new AuthenticationRequest("LDAP", new Uint8Array([1, 2, 3, 4]))
     const buf = original.serialize()
-    const reader =new DataReader(buf)
-    const roundtrip = AuthenticationRequest.deserialize(reader)
+    const roundtrip = AuthenticationRequest.deserialize(buf)
     expect(roundtrip).toEqual(original)
 })
 
 test('AuthenticationResponse', () => {
     const original = new AuthenticationResponse("123456")
     const buf = original.serialize()
-    const reader =new DataReader(buf)
-    const roundtrip = AuthenticationResponse.deserialize(reader)
+    const roundtrip = AuthenticationResponse.deserialize(buf)
     expect(roundtrip).toEqual(original)
 })
 
@@ -35,7 +32,6 @@ test('ForwardedMulticastData', () => {
         ]
     )
     const buf = original.serialize()
-    const reader =new DataReader(buf)
-    const roundtrip = ForwardedMulticastData.deserialize(reader)
+    const roundtrip = ForwardedMulticastData.deserialize(buf)
     expect(roundtrip).toEqual(original)
 })
