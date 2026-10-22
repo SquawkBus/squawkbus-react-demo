@@ -1,44 +1,39 @@
-import { DataReader, DataWriter } from './Serialization'
+import { DataReader } from './DataReader'
+import { DataWriter } from './DataWriter'
 import { DataPacketObj } from './types'
 
 export class DataPacket {
-  public name: string
-  public entitlement: number
-  public contentType: string
+  public entitlements: Set<number>
+  public headers: Map<string, string>
   public data: Uint8Array
 
   constructor(
-    name: string,
-    entitlement: number,
-    contentType: string,
+    entitlements: Set<number>,
+    headers: Map<string, string>,
     data: Uint8Array
   ) {
-    this.name = name
-    this.entitlement = entitlement
-    this.contentType = contentType
+    this.entitlements = entitlements
+    this.headers = headers
     this.data = data
   }
 
   serialize(writer: DataWriter): void {
-    writer.writeString(this.name)
-    writer.writeInt32(this.entitlement)
-    writer.writeString(this.contentType)
+    writer.writeSetInt32(this.entitlements)
+    writer.writeMapStringString(this.headers)
     writer.writeBuffer(this.data)
   }
 
   static deserialize(reader: DataReader): DataPacket {
-    const name = reader.readString()
-    const entitlement = reader.readInt32()
-    const contentType = reader.readString()
+    const entitlements = reader.readSetInt32()
+    const headers = reader.readMapStringString()
     const data = reader.readBuffer()
-    return new DataPacket(name, entitlement, contentType, data)
+    return new DataPacket(entitlements, headers, data)
   }
 
   toObj(): DataPacketObj {
     return {
-      name: this.name,
-      entitlement: this.entitlement,
-      contentType: this.contentType,
+      entitlements: this.entitlements,
+      headers: this.headers,
       data: this.data.buffer
     }
   }

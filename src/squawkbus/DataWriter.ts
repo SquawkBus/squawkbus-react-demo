@@ -1,6 +1,4 @@
-const SIZEOF_BYTE: number = 1
-const SIZEOF_DWORD: number = 4
-const SIZEOF_QWORD: number = 8
+import { SIZEOF_BYTE, SIZEOF_DWORD, SIZEOF_QWORD } from "./constants"
 
 enum DataType {
   BYTE,
@@ -8,10 +6,12 @@ enum DataType {
   UINT32,
   INT64,
   UINT64,
-  BUFFER
+  BUFFER,
+  SET_INT32,
+  MAP_STRING_STRING
 }
 
-type DataValue = number | bigint | Uint8Array
+type DataValue = number | bigint | Uint8Array | Set<number> | Array<[Uint8Array, Uint8Array]>
 
 type DataItem = {
   type: DataType
@@ -21,7 +21,7 @@ type DataItem = {
 export class DataWriter {
   private contents: DataItem[] = []
   private size: number = 0
-  private static textEncoder = new TextEncoder()
+  static textEncoder = new TextEncoder()
 
   private writeValue(value: DataValue, type: DataType, size: number) {
     this.contents.push({ type, value })
@@ -56,11 +56,22 @@ export class DataWriter {
     this.writeBuffer(DataWriter.textEncoder.encode(value))
   }
 
+  writeSetInt32(value: Set<number>): void {
+    const size = SIZEOF_DWORD + value.size * SIZEOF_DWORD
+    this.writeValue(value, DataType.SET_INT32, size)
+  }
+
+  writeMapStringString(value: Map<string, string>): void {
+    const map: Array<[Uint8Array, Uint8Array]> = Array.from(value).map(([key, value]) => [DataWriter.textEncoder.encode(key), DataWriter.textEncoder.encode(value)])
+    let size = map.reduce((size, [KeyboardEvent, value]) => size + SIZEOF_DWORD + KeyboardEvent.byteLength+ SIZEOF_DWORD + value.byteLength, SIZEOF_DWORD)
+    this.writeValue(map, DataType.MAP_STRING_STRING, size)
+  }
+
   writeBuffer(value: Uint8Array): void {
     this.writeValue(value, DataType.BUFFER, value.byteLength + SIZEOF_DWORD)
   }
 
-  toBuffer(): ArrayBuffer {
+  toBuffer(): Uint8Array {
     const buf = new Uint8Array(this.size)
     const view = new DataView(buf.buffer)
     let byteOffset = 0
@@ -90,68 +101,42 @@ export class DataWriter {
           buf.set(byteArray, byteOffset)
           byteOffset += byteArray.byteLength
         }
+      } else if (type == DataType.SET_INT32) {
+        const set = value as Set<number>
+        // length
+        view.setUint32(byteOffset, set.size)
+        byteOffset += SIZEOF_DWORD
+        // values
+        for (const element of set) {
+          view.setInt32(byteOffset, element)
+          byteOffset += SIZEOF_DWORD
+        }
+      } else if (type == DataType.MAP_STRING_STRING) {
+        const map = value as Array<[Uint8Array, Uint8Array]>
+        // length
+        view.setUint32(byteOffset, map.length)
+        byteOffset += SIZEOF_DWORD
+        // values
+        for (const [key, val] of map) {
+          // key.length
+          view.setUint32(byteOffset, key.byteLength)
+          byteOffset += SIZEOF_DWORD
+          // key.buffer
+          buf.set(key, byteOffset)
+          byteOffset += key.byteLength
+
+          // val.length
+          view.setUint32(byteOffset, val.byteLength)
+          byteOffset += SIZEOF_DWORD
+          // val.buffer
+          buf.set(val, byteOffset)
+          byteOffset += val.byteLength
+        }
       } else {
         throw new Error('Unhandled data type')
       }
     }
 
-    return buf.buffer
-  }
-}
-
-export class DataReader {
-  private buf: Uint8Array
-  private offset: number
-  private view: DataView
-  private static textDecoder = new TextDecoder()
-
-  constructor(buf: Uint8Array) {
-    this.buf = buf
-    this.offset = 0
-    this.view = new DataView(buf.buffer)
-  }
-
-  readByte(): number {
-    return this.view.getUint8(this.offset++)
-  }
-
-  readBool(): boolean {
-    return this.readByte() == 1
-  }
-
-  readInt32(): number {
-    const value = this.view.getInt32(this.offset, false)
-    this.offset += SIZEOF_DWORD
-    return value
-  }
-
-  readUInt32(): number {
-    const value = this.view.getUint32(this.offset, false)
-    this.offset += SIZEOF_DWORD
-    return value
-  }
-
-  readInt64(): bigint {
-    const value = this.view.getBigInt64(this.offset, false)
-    this.offset += SIZEOF_QWORD
-    return value
-  }
-
-  readUInt64(): bigint {
-    const value = this.view.getBigUint64(this.offset, false)
-    this.offset += SIZEOF_QWORD
-    return value
-  }
-
-  readBuffer(): Uint8Array {
-    const length = this.readUInt32()
-    const buf = this.buf.slice(this.offset, this.offset + length)
-    this.offset += length
     return buf
-  }
-
-  readString(): string {
-    const buf = this.readBuffer()
-    return DataReader.textDecoder.decode(buf)
   }
 }

@@ -1,7 +1,6 @@
 export type DataPacketObj = {
-  name: string
-  entitlement: number
-  contentType: string
+  entitlements: Set<number>
+  headers: Map<string, string>
   data: ArrayBufferLike
 }
 

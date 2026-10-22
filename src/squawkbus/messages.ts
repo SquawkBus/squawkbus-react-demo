@@ -1,4 +1,5 @@
-import { DataReader, DataWriter } from './Serialization'
+import { DataReader } from './DataReader'
+import { DataWriter } from './DataWriter'
 import { DataPacket, deserializeDataPackets, serializeDataPackets } from './dataPackets'
 
 export enum MessageType {
@@ -21,7 +22,7 @@ export abstract class Message {
     this.messageType = messageType
   }
 
-  serialize(): ArrayBuffer {
+  serialize(): Uint8Array {
     const writer = new DataWriter()
     writer.writeByte(this.messageType)
     this.serializeBody(writer)
@@ -31,26 +32,28 @@ export abstract class Message {
   protected abstract serializeBody(writer: DataWriter): void
 
   static deserialize(reader: DataReader): Message {
-    const messageType = reader.readByte() as MessageType
+    
+    const messageType: MessageType = reader.readByte()
+
     switch (messageType) {
       case MessageType.AuthenticationRequest:
-        return AuthenticationRequest.deserialize(reader)
+        return AuthenticationRequest.deserializeBody(reader)
       case MessageType.AuthenticationResponse:
-        return AuthenticationResponse.deserialize(reader)
+        return AuthenticationResponse.deserializeBody(reader)
       case MessageType.ForwardedMulticastData:
-        return ForwardedMulticastData.deserialize(reader)
+        return ForwardedMulticastData.deserializeBody(reader)
       case MessageType.ForwardedSubscriptionRequest:
-        return ForwardedSubscriptionRequest.deserialize(reader)
+        return ForwardedSubscriptionRequest.deserializeBody(reader)
       case MessageType.ForwardedUnicastData:
-        return ForwardedUnicastData.deserialize(reader)
+        return ForwardedUnicastData.deserializeBody(reader)
       case MessageType.MulticastData:
-        return MulticastData.deserialize(reader)
+        return MulticastData.deserializeBody(reader)
       case MessageType.NotificationRequest:
-        return NotificationRequest.deserialize(reader)
+        return NotificationRequest.deserializeBody(reader)
       case MessageType.SubscriptionRequest:
-        return SubscriptionRequest.deserialize(reader)
+        return SubscriptionRequest.deserializeBody(reader)
       case MessageType.Heartbeat:
-        return Heartbeat.deserialize(reader)
+        return Heartbeat.deserializeBody(reader)
       default:
         throw new Error('unhandled message type')
     }
@@ -71,6 +74,12 @@ export class AuthenticationRequest extends Message {
     writer.writeString(this.method)
     writer.writeBuffer(this.credentials)
   }
+
+  static deserializeBody(reader: DataReader): AuthenticationRequest {
+    const method = reader.readString()
+    const credentials = reader.readBuffer()
+    return new AuthenticationRequest(method, credentials)
+  }
 }
 
 export class AuthenticationResponse extends Message {
@@ -85,7 +94,7 @@ export class AuthenticationResponse extends Message {
     writer.writeString(this.clientId)
   }
 
-  static deserialize(reader: DataReader): AuthenticationResponse {
+  static deserializeBody(reader: DataReader): AuthenticationResponse {
     const clientId = reader.readString()
     return new AuthenticationResponse(clientId)
   }
@@ -117,7 +126,7 @@ export class ForwardedMulticastData extends Message {
     serializeDataPackets(this.dataPackets, writer)
   }
 
-  static deserialize(reader: DataReader): ForwardedMulticastData {
+  static deserializeBody(reader: DataReader): ForwardedMulticastData {
     const host = reader.readString()
     const user = reader.readString()
     const topic = reader.readString()
@@ -156,7 +165,7 @@ export class ForwardedSubscriptionRequest extends Message {
     writer.writeBool(this.isAdd)
   }
 
-  static deserialize(reader: DataReader): ForwardedSubscriptionRequest {
+  static deserializeBody(reader: DataReader): ForwardedSubscriptionRequest {
     const host = reader.readString()
     const user = reader.readString()
     const clientId = reader.readString()
@@ -196,7 +205,7 @@ export class ForwardedUnicastData extends Message {
     serializeDataPackets(this.dataPackets, writer)
   }
 
-  static deserialize(reader: DataReader): ForwardedUnicastData {
+  static deserializeBody(reader: DataReader): ForwardedUnicastData {
     const host = reader.readString()
     const user = reader.readString()
     const clientId = reader.readString()
@@ -218,7 +227,7 @@ export class Heartbeat extends Message {
     writer.writeUInt64(this.count)
   }
 
-  static deserialize(reader: DataReader): Heartbeat {
+  static deserializeBody(reader: DataReader): Heartbeat {
     const count = reader.readUInt64()
     return new Heartbeat(count)
   }
@@ -239,7 +248,7 @@ export class MulticastData extends Message {
     serializeDataPackets(this.dataPackets, writer)
   }
 
-  static deserialize(reader: DataReader): MulticastData {
+  static deserializeBody(reader: DataReader): MulticastData {
     const topic = reader.readString()
     const dataPackets = deserializeDataPackets(reader)
     return new MulticastData(topic, dataPackets)
@@ -261,7 +270,7 @@ export class NotificationRequest extends Message {
     writer.writeBool(this.isAdd)
   }
 
-  static deserialize(reader: DataReader): NotificationRequest {
+  static deserializeBody(reader: DataReader): NotificationRequest {
     const pattern = reader.readString()
     const isAdd = reader.readBool()
     return new NotificationRequest(pattern, isAdd)
@@ -283,7 +292,7 @@ export class SubscriptionRequest extends Message {
     writer.writeBool(this.isAdd)
   }
 
-  static deserialize(reader: DataReader): SubscriptionRequest {
+  static deserializeBody(reader: DataReader): SubscriptionRequest {
     const topic = reader.readString()
     const isAdd = reader.readBool()
     return new SubscriptionRequest(topic, isAdd)
@@ -308,7 +317,7 @@ export class UnicastData extends Message {
     serializeDataPackets(this.dataPackets, writer)
   }
 
-  static deserialize(reader: DataReader): UnicastData {
+  static deserializeBody(reader: DataReader): UnicastData {
     const clientId = reader.readString()
     const topic = reader.readString()
     const dataPackets = deserializeDataPackets(reader)

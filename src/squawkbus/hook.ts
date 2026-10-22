@@ -15,7 +15,7 @@ import {
   UnicastData
 } from './messages'
 import { DataMessageObj, HeartbeatObj, NotificationObj } from './types'
-import { DataReader } from './Serialization'
+import { DataReader } from './DataReader'
 
 export enum ConnectionState {
   PENDING = 'PENDING',
