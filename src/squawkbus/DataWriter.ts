@@ -1,15 +1,15 @@
 import { SIZEOF_BYTE, SIZEOF_DWORD, SIZEOF_QWORD } from "./constants"
 
-enum DataType {
-  BYTE,
-  INT32,
-  UINT32,
-  INT64,
-  UINT64,
-  BUFFER,
-  SET_INT32,
-  MAP_STRING_STRING
-}
+type DataType = (
+  'u8' |
+  'i32' |
+  'u32' |
+  'i64' |
+  'u64' |
+  '[u8]' |
+  'set<number>' |
+  'map<string,string>'
+)
 
 type DataValue = number | bigint | Uint8Array | Set<number> | Array<[Uint8Array, Uint8Array]>
 
@@ -29,7 +29,7 @@ export class DataWriter {
   }
 
   writeByte(value: number): void {
-    this.writeValue(value, DataType.BYTE, SIZEOF_BYTE)
+    this.writeValue(value, 'u8', SIZEOF_BYTE)
   }
 
   writeBool(value: boolean): void {
@@ -37,19 +37,19 @@ export class DataWriter {
   }
 
   writeInt32(value: number): void {
-    this.writeValue(value, DataType.INT32, SIZEOF_DWORD)
+    this.writeValue(value, 'i32', SIZEOF_DWORD)
   }
 
   writeUInt32(value: number): void {
-    this.writeValue(value, DataType.UINT32, SIZEOF_DWORD)
+    this.writeValue(value, 'u32', SIZEOF_DWORD)
   }
 
   writeInt64(value: bigint): void {
-    this.writeValue(value, DataType.INT64, SIZEOF_DWORD)
+    this.writeValue(value, 'i64', SIZEOF_DWORD)
   }
 
   writeUInt64(value: bigint): void {
-    this.writeValue(value, DataType.UINT64, SIZEOF_DWORD)
+    this.writeValue(value, 'u64', SIZEOF_DWORD)
   }
 
   writeString(value: string): void {
@@ -58,17 +58,17 @@ export class DataWriter {
 
   writeSetInt32(value: Set<number>): void {
     const size = SIZEOF_DWORD + value.size * SIZEOF_DWORD
-    this.writeValue(value, DataType.SET_INT32, size)
+    this.writeValue(value, 'set<number>', size)
   }
 
   writeMapStringString(value: Map<string, string>): void {
     const map: Array<[Uint8Array, Uint8Array]> = Array.from(value).map(([key, value]) => [DataWriter.textEncoder.encode(key), DataWriter.textEncoder.encode(value)])
     let size = map.reduce((size, [KeyboardEvent, value]) => size + SIZEOF_DWORD + KeyboardEvent.byteLength+ SIZEOF_DWORD + value.byteLength, SIZEOF_DWORD)
-    this.writeValue(map, DataType.MAP_STRING_STRING, size)
+    this.writeValue(map, 'map<string,string>', size)
   }
 
   writeBuffer(value: Uint8Array): void {
-    this.writeValue(value, DataType.BUFFER, value.byteLength + SIZEOF_DWORD)
+    this.writeValue(value, '[u8]', value.byteLength + SIZEOF_DWORD)
   }
 
   toBuffer(): Uint8Array<ArrayBuffer> {
@@ -76,22 +76,22 @@ export class DataWriter {
     const view = new DataView(buf.buffer)
     let byteOffset = 0
     for (const { type, value } of this.contents) {
-      if (type === DataType.BYTE) {
+      if (type === 'u8') {
         view.setUint8(byteOffset, value as number)
         byteOffset += SIZEOF_BYTE
-      } else if (type === DataType.INT32) {
+      } else if (type === 'i32') {
         view.setInt32(byteOffset, value as number, false)
         byteOffset += SIZEOF_DWORD
-      } else if (type === DataType.UINT32) {
+      } else if (type === 'u32') {
         view.setUint32(byteOffset, value as number, false)
         byteOffset += SIZEOF_DWORD
-      } else if (type === DataType.INT64) {
+      } else if (type === 'i64') {
         view.setBigInt64(byteOffset, value as bigint, false)
         byteOffset += SIZEOF_QWORD
-      } else if (type === DataType.UINT64) {
+      } else if (type === 'u64') {
         view.setBigUint64(byteOffset, value as bigint, false)
         byteOffset += SIZEOF_QWORD
-      } else if (type === DataType.BUFFER) {
+      } else if (type === '[u8]') {
         const byteArray = value as Uint8Array
         // length
         view.setUint32(byteOffset, byteArray.byteLength)
@@ -101,7 +101,7 @@ export class DataWriter {
           buf.set(byteArray, byteOffset)
           byteOffset += byteArray.byteLength
         }
-      } else if (type == DataType.SET_INT32) {
+      } else if (type == 'set<number>') {
         const set = value as Set<number>
         // length
         view.setUint32(byteOffset, set.size)
@@ -111,7 +111,7 @@ export class DataWriter {
           view.setInt32(byteOffset, element)
           byteOffset += SIZEOF_DWORD
         }
-      } else if (type == DataType.MAP_STRING_STRING) {
+      } else if (type == 'map<string,string>') {
         const map = value as Array<[Uint8Array, Uint8Array]>
         // length
         view.setUint32(byteOffset, map.length)

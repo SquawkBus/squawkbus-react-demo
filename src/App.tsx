@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { useSquawkbus, AuthenticationState, ConnectionState } from './squawkbus'
+import { useSquawkbus } from './squawkbus'
 
 export default function App() {
   const {
@@ -26,8 +26,8 @@ export default function App() {
   useEffect(() => {
     if (
       !(
-        connectionState === ConnectionState.OPEN &&
-        authenticationState == AuthenticationState.SUCCESS
+        connectionState === 'OPEN' &&
+        authenticationState == 'SUCCESS'
       )
     ) {
       return

@@ -2,23 +2,23 @@ import { DataReader } from './DataReader'
 import { DataWriter } from './DataWriter'
 import { DataPacket, deserializeDataPackets, serializeDataPackets } from './dataPackets'
 
-export enum MessageType {
-  AuthenticationRequest = 1,
-  AuthenticationResponse = 2,
-  MulticastData = 3,
-  UnicastData = 4,
-  ForwardedSubscriptionRequest = 5,
-  NotificationRequest = 6,
-  SubscriptionRequest = 7,
-  ForwardedMulticastData = 8,
-  ForwardedUnicastData = 9,
-  Heartbeat = 10
+export const MESSAGE_TYPE = {
+  AuthenticationRequest: 1,
+  AuthenticationResponse: 2,
+  MulticastData: 3,
+  UnicastData: 4,
+  ForwardedSubscriptionRequest: 5,
+  NotificationRequest: 6,
+  SubscriptionRequest: 7,
+  ForwardedMulticastData: 8,
+  ForwardedUnicastData: 9,
+  Heartbeat: 10
 }
 
 export abstract class Message {
-  public messageType: MessageType
+  public messageType: number
 
-  protected constructor(messageType: MessageType) {
+  protected constructor(messageType: number) {
     this.messageType = messageType
   }
 
@@ -33,26 +33,26 @@ export abstract class Message {
 
   static deserialize(buf: Uint8Array<ArrayBuffer>): Message {
     const reader = new DataReader(buf)
-    const messageType: MessageType = reader.readByte()
+    const messageType: number = reader.readByte()
 
     switch (messageType) {
-      case MessageType.AuthenticationRequest:
+      case MESSAGE_TYPE.AuthenticationRequest:
         return AuthenticationRequest.deserializeBody(reader)
-      case MessageType.AuthenticationResponse:
+      case MESSAGE_TYPE.AuthenticationResponse:
         return AuthenticationResponse.deserializeBody(reader)
-      case MessageType.ForwardedMulticastData:
+      case MESSAGE_TYPE.ForwardedMulticastData:
         return ForwardedMulticastData.deserializeBody(reader)
-      case MessageType.ForwardedSubscriptionRequest:
+      case MESSAGE_TYPE.ForwardedSubscriptionRequest:
         return ForwardedSubscriptionRequest.deserializeBody(reader)
-      case MessageType.ForwardedUnicastData:
+      case MESSAGE_TYPE.ForwardedUnicastData:
         return ForwardedUnicastData.deserializeBody(reader)
-      case MessageType.MulticastData:
+      case MESSAGE_TYPE.MulticastData:
         return MulticastData.deserializeBody(reader)
-      case MessageType.NotificationRequest:
+      case MESSAGE_TYPE.NotificationRequest:
         return NotificationRequest.deserializeBody(reader)
-      case MessageType.SubscriptionRequest:
+      case MESSAGE_TYPE.SubscriptionRequest:
         return SubscriptionRequest.deserializeBody(reader)
-      case MessageType.Heartbeat:
+      case MESSAGE_TYPE.Heartbeat:
         return Heartbeat.deserializeBody(reader)
       default:
         throw new Error('unhandled message type')
@@ -65,7 +65,7 @@ export class AuthenticationRequest extends Message {
   credentials: Uint8Array
 
   constructor(method: string, credentials: Uint8Array) {
-    super(MessageType.AuthenticationRequest)
+    super(MESSAGE_TYPE.AuthenticationRequest)
     this.method = method
     this.credentials = credentials
   }
@@ -86,7 +86,7 @@ export class AuthenticationResponse extends Message {
   public clientId: string
 
   constructor(clientId: string) {
-    super(MessageType.AuthenticationResponse)
+    super(MESSAGE_TYPE.AuthenticationResponse)
     this.clientId = clientId
   }
 
@@ -112,7 +112,7 @@ export class ForwardedMulticastData extends Message {
     topic: string,
     dataPackets: DataPacket[]
   ) {
-    super(MessageType.ForwardedMulticastData)
+    super(MESSAGE_TYPE.ForwardedMulticastData)
     this.host = host
     this.user = user
     this.topic = topic
@@ -149,7 +149,7 @@ export class ForwardedSubscriptionRequest extends Message {
     topic: string,
     isAdd: boolean
   ) {
-    super(MessageType.ForwardedSubscriptionRequest)
+    super(MESSAGE_TYPE.ForwardedSubscriptionRequest)
     this.host = host
     this.user = user
     this.clientId = clientId
@@ -189,7 +189,7 @@ export class ForwardedUnicastData extends Message {
     topic: string,
     dataPackets: DataPacket[]
   ) {
-    super(MessageType.ForwardedUnicastData)
+    super(MESSAGE_TYPE.ForwardedUnicastData)
     this.host = host
     this.user = user
     this.clientId = clientId
@@ -219,7 +219,7 @@ export class Heartbeat extends Message {
   public count: bigint
 
   constructor(count: bigint) {
-    super(MessageType.Heartbeat)
+    super(MESSAGE_TYPE.Heartbeat)
     this.count = count
   }
 
@@ -238,7 +238,7 @@ export class MulticastData extends Message {
   public dataPackets: DataPacket[]
 
   constructor(topic: string, dataPackets: DataPacket[]) {
-    super(MessageType.MulticastData)
+    super(MESSAGE_TYPE.MulticastData)
     this.topic = topic
     this.dataPackets = dataPackets
   }
@@ -260,7 +260,7 @@ export class NotificationRequest extends Message {
   public isAdd: boolean
 
   constructor(pattern: string, isAdd: boolean) {
-    super(MessageType.NotificationRequest)
+    super(MESSAGE_TYPE.NotificationRequest)
     this.pattern = pattern
     this.isAdd = isAdd
   }
@@ -282,7 +282,7 @@ export class SubscriptionRequest extends Message {
   public isAdd: boolean
 
   constructor(topic: string, isAdd: boolean) {
-    super(MessageType.SubscriptionRequest)
+    super(MESSAGE_TYPE.SubscriptionRequest)
     this.topic = topic
     this.isAdd = isAdd
   }
@@ -305,7 +305,7 @@ export class UnicastData extends Message {
   public dataPackets: DataPacket[]
 
   constructor(clientId: string, topic: string, dataPackets: DataPacket[]) {
-    super(MessageType.UnicastData)
+    super(MESSAGE_TYPE.UnicastData)
     this.clientId = clientId
     this.topic = topic
     this.dataPackets = dataPackets

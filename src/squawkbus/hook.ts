@@ -8,28 +8,28 @@ import {
   ForwardedUnicastData,
   Heartbeat,
   Message,
-  MessageType,
+  MESSAGE_TYPE,
   MulticastData,
   NotificationRequest,
   SubscriptionRequest,
   UnicastData
 } from './messages'
-import { DataMessageObj, HeartbeatObj, NotificationObj } from './types'
+import type { DataMessageObj, HeartbeatObj, NotificationObj } from './types'
 
-export enum ConnectionState {
-  PENDING = 'PENDING',
-  CONNECTING = 'CONNECTING',
-  OPEN = 'OPEN',
-  CLOSING = 'CLOSING',
-  CLOSED = 'CLOSED'
-}
+export type ConnectionState = (
+  'PENDING' |
+  'CONNECTING' |
+  'OPEN' |
+  'CLOSING' |
+  'CLOSED'
+)
 
-export enum AuthenticationState {
-  PENDING = 'PENDING',
-  REQUEST = 'REQUEST',
-  SUCCESS = 'SUCCESS',
-  FAILURE = 'FAILURE'
-}
+export type AuthenticationState = (
+  'PENDING' |
+  'REQUEST' |
+  'SUCCESS' |
+  'FAILURE'
+)
 
 export type Options = {
   credentials?: [string, string]
@@ -74,10 +74,10 @@ export const useSquawkbus = (
 ): WebHookOutputs => {
   const webSocketRef = useRef<WebSocket | null>(null)
   const [connectionState, setConnectionState] = useState<ConnectionState>(
-    ConnectionState.PENDING
+    'PENDING'
   )
   const [authenticationState, setAuthenticationState] =
-    useState<AuthenticationState>(AuthenticationState.PENDING)
+    useState<AuthenticationState>('PENDING')
   const [clientId, setClientId] = useState<string | null>(null)
   const [data, setData] = useState<DataMessageObj | null>(null)
   const [notification, setNotification] = useState<NotificationObj | null>(
@@ -121,8 +121,8 @@ export const useSquawkbus = (
 
   const handleDispose = useCallback(() => {
     if (
-      connectionState === ConnectionState.CONNECTING ||
-      connectionState === ConnectionState.OPEN
+      connectionState === 'CONNECTING' ||
+      connectionState === 'OPEN'
     ) {
       webSocketRef.current?.close()
     }
@@ -132,14 +132,14 @@ export const useSquawkbus = (
     (event: Event) => {
       console.log(`open: ${event.type}`)
 
-      setConnectionState(ConnectionState.OPEN)
+      setConnectionState('OPEN')
 
       const authenticationRequest = new AuthenticationRequest(
         options?.credentials ? 'basic' : 'none',
         createAuthenticationToken(options?.credentials)
       )
 
-      setAuthenticationState(AuthenticationState.REQUEST)
+      setAuthenticationState('REQUEST')
       webSocketRef.current?.send(authenticationRequest.serialize())
     },
     [webSocketRef, options]
@@ -147,13 +147,13 @@ export const useSquawkbus = (
 
   const handleClose = useCallback((event: Event) => {
     console.log(`close: ${event.type}`)
-    setConnectionState(ConnectionState.CLOSED)
+    setConnectionState('CLOSED')
   }, [])
 
   // Error handler: error is a special type of close.
   const handleError = useCallback((event: Event) => {
     console.log(`close: ${event.type}`)
-    setConnectionState(ConnectionState.CLOSED)
+    setConnectionState('CLOSED')
   }, [])
 
   // Message handler.
@@ -163,14 +163,14 @@ export const useSquawkbus = (
     const message = Message.deserialize(new Uint8Array(event.data))
 
     switch (message.messageType) {
-      case MessageType.AuthenticationResponse:
+      case MESSAGE_TYPE.AuthenticationResponse:
         {
           const msg = message as AuthenticationResponse
           setClientId(msg.clientId)
-          setAuthenticationState(AuthenticationState.SUCCESS)
+          setAuthenticationState('SUCCESS')
         }
         break
-      case MessageType.ForwardedMulticastData:
+      case MESSAGE_TYPE.ForwardedMulticastData:
         {
           const msg = message as ForwardedMulticastData
           setData({
@@ -181,7 +181,7 @@ export const useSquawkbus = (
           })
         }
         break
-      case MessageType.ForwardedUnicastData:
+      case MESSAGE_TYPE.ForwardedUnicastData:
         {
           const msg = message as ForwardedUnicastData
           setData({
@@ -192,7 +192,7 @@ export const useSquawkbus = (
           })
         }
         break
-      case MessageType.ForwardedSubscriptionRequest:
+      case MESSAGE_TYPE.ForwardedSubscriptionRequest:
         {
           const msg = message as ForwardedSubscriptionRequest
           setNotification({
@@ -204,7 +204,7 @@ export const useSquawkbus = (
           })
         }
         break
-      case MessageType.Heartbeat:
+      case MESSAGE_TYPE.Heartbeat:
         {
           const msg = message as Heartbeat
           setHeartbeat({
@@ -219,7 +219,7 @@ export const useSquawkbus = (
   }, [])
 
   useEffect(() => {
-    if (connectionState !== ConnectionState.PENDING) {
+    if (connectionState !== 'PENDING') {
       return
     }
 
@@ -229,7 +229,7 @@ export const useSquawkbus = (
     webSocketRef.current.onclose = handleClose
     webSocketRef.current.onerror = handleError
     webSocketRef.current.onmessage = handleMessage
-    setConnectionState(ConnectionState.CONNECTING)
+    setConnectionState('CONNECTING')
 
     return handleDispose
   }, [

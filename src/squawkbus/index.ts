@@ -1,4 +1,4 @@
-export { AuthenticationState, ConnectionState, useSquawkbus } from './hook'
+export { type AuthenticationState, type ConnectionState, useSquawkbus } from './hook'
 export type {
   Listen,
   Options,
