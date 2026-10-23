@@ -71,7 +71,7 @@ export class DataWriter {
     this.writeValue(value, DataType.BUFFER, value.byteLength + SIZEOF_DWORD)
   }
 
-  toBuffer(): Uint8Array {
+  toBuffer(): Uint8Array<ArrayBuffer> {
     const buf = new Uint8Array(this.size)
     const view = new DataView(buf.buffer)
     let byteOffset = 0

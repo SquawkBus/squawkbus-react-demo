@@ -22,7 +22,7 @@ export abstract class Message {
     this.messageType = messageType
   }
 
-  serialize(): Uint8Array {
+  serialize(): Uint8Array<ArrayBuffer> {
     const writer = new DataWriter()
     writer.writeByte(this.messageType)
     this.serializeBody(writer)
@@ -31,7 +31,7 @@ export abstract class Message {
 
   protected abstract serializeBody(writer: DataWriter): void
 
-  static deserialize(buf: Uint8Array): Message {
+  static deserialize(buf: Uint8Array<ArrayBuffer>): Message {
     const reader = new DataReader(buf)
     const messageType: MessageType = reader.readByte()
 

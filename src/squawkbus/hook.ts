@@ -15,7 +15,6 @@ import {
   UnicastData
 } from './messages'
 import { DataMessageObj, HeartbeatObj, NotificationObj } from './types'
-import { DataReader } from './DataReader'
 
 export enum ConnectionState {
   PENDING = 'PENDING',
@@ -89,7 +88,8 @@ export const useSquawkbus = (
   const send = useCallback(
     (clientId: string, topic: string, dataPackets: DataPacket[]) => {
       const message = new UnicastData(clientId, topic, dataPackets)
-      webSocketRef.current?.send(message.serialize())
+      const buf = message.serialize()
+      webSocketRef.current?.send(buf.buffer)
     },
     []
   )
