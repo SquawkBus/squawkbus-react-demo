@@ -48,6 +48,8 @@ export abstract class Message {
         return ForwardedUnicastData.deserializeBody(reader)
       case MESSAGE_TYPE.MulticastData:
         return MulticastData.deserializeBody(reader)
+      case MESSAGE_TYPE.UnicastData:
+        return UnicastData.deserializeBody(reader)
       case MESSAGE_TYPE.NotificationRequest:
         return NotificationRequest.deserializeBody(reader)
       case MESSAGE_TYPE.SubscriptionRequest:
