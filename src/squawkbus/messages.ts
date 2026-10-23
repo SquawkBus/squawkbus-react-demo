@@ -1,89 +1,28 @@
-import { DataReader, DataWriter } from './Serialization'
-import { DataPacketObj } from './types'
+import { DataReader } from './DataReader'
+import { DataWriter } from './DataWriter'
+import { DataPacket, deserializeDataPackets, serializeDataPackets } from './dataPackets'
 
-export enum MessageType {
-  AuthenticationRequest = 1,
-  AuthenticationResponse = 2,
-  MulticastData = 3,
-  UnicastData = 4,
-  ForwardedSubscriptionRequest = 5,
-  NotificationRequest = 6,
-  SubscriptionRequest = 7,
-  ForwardedMulticastData = 8,
-  ForwardedUnicastData = 9
-}
-
-export class DataPacket {
-  public name: string
-  public entitlement: number
-  public contentType: string
-  public data: Uint8Array
-
-  constructor(
-    name: string,
-    entitlement: number,
-    contentType: string,
-    data: Uint8Array
-  ) {
-    this.name = name
-    this.entitlement = entitlement
-    this.contentType = contentType
-    this.data = data
-  }
-
-  serialize(writer: DataWriter): void {
-    writer.writeString(this.name)
-    writer.writeInt(this.entitlement)
-    writer.writeString(this.contentType)
-    writer.writeBuffer(this.data)
-  }
-
-  static deserialize(reader: DataReader): DataPacket {
-    const name = reader.readString()
-    const entitlement = reader.readInt32()
-    const contentType = reader.readString()
-    const data = reader.readBuffer()
-    return new DataPacket(name, entitlement, contentType, data)
-  }
-
-  toObj(): DataPacketObj {
-    return {
-      name: this.name,
-      entitlement: this.entitlement,
-      contentType: this.contentType,
-      data: this.data.buffer
-    }
-  }
-}
-
-function serializeDataPackets(
-  dataPackets: DataPacket[],
-  writer: DataWriter
-): void {
-  writer.writeUInt(dataPackets.length)
-  for (const dataPacket of dataPackets) {
-    dataPacket.serialize(writer)
-  }
-}
-
-function deserializeDataPackets(reader: DataReader): DataPacket[] {
-  let length = reader.readUInt32()
-  const dataPackets = []
-  while (length > 0) {
-    dataPackets.push(DataPacket.deserialize(reader))
-    length -= 1
-  }
-  return dataPackets
+export const MESSAGE_TYPE = {
+  AuthenticationRequest: 1,
+  AuthenticationResponse: 2,
+  MulticastData: 3,
+  UnicastData: 4,
+  ForwardedSubscriptionRequest: 5,
+  NotificationRequest: 6,
+  SubscriptionRequest: 7,
+  ForwardedMulticastData: 8,
+  ForwardedUnicastData: 9,
+  Heartbeat: 10
 }
 
 export abstract class Message {
-  public messageType: MessageType
+  public messageType: number
 
-  protected constructor(messageType: MessageType) {
+  protected constructor(messageType: number) {
     this.messageType = messageType
   }
 
-  serialize(): ArrayBuffer {
+  serialize(): Uint8Array<ArrayBuffer> {
     const writer = new DataWriter()
     writer.writeByte(this.messageType)
     this.serializeBody(writer)
@@ -92,25 +31,29 @@ export abstract class Message {
 
   protected abstract serializeBody(writer: DataWriter): void
 
-  static deserialize(reader: DataReader): Message {
-    const messageType = reader.readByte() as MessageType
+  static deserialize(buf: Uint8Array<ArrayBuffer>): Message {
+    const reader = new DataReader(buf)
+    const messageType: number = reader.readByte()
+
     switch (messageType) {
-      case MessageType.AuthenticationRequest:
-        return AuthenticationRequest.deserialize(reader)
-      case MessageType.AuthenticationResponse:
-        return AuthenticationResponse.deserialize(reader)
-      case MessageType.ForwardedMulticastData:
-        return ForwardedMulticastData.deserialize(reader)
-      case MessageType.ForwardedSubscriptionRequest:
-        return ForwardedSubscriptionRequest.deserialize(reader)
-      case MessageType.ForwardedUnicastData:
-        return ForwardedUnicastData.deserialize(reader)
-      case MessageType.MulticastData:
-        return MulticastData.deserialize(reader)
-      case MessageType.NotificationRequest:
-        return NotificationRequest.deserialize(reader)
-      case MessageType.SubscriptionRequest:
-        return SubscriptionRequest.deserialize(reader)
+      case MESSAGE_TYPE.AuthenticationRequest:
+        return AuthenticationRequest.deserializeBody(reader)
+      case MESSAGE_TYPE.AuthenticationResponse:
+        return AuthenticationResponse.deserializeBody(reader)
+      case MESSAGE_TYPE.ForwardedMulticastData:
+        return ForwardedMulticastData.deserializeBody(reader)
+      case MESSAGE_TYPE.ForwardedSubscriptionRequest:
+        return ForwardedSubscriptionRequest.deserializeBody(reader)
+      case MESSAGE_TYPE.ForwardedUnicastData:
+        return ForwardedUnicastData.deserializeBody(reader)
+      case MESSAGE_TYPE.MulticastData:
+        return MulticastData.deserializeBody(reader)
+      case MESSAGE_TYPE.NotificationRequest:
+        return NotificationRequest.deserializeBody(reader)
+      case MESSAGE_TYPE.SubscriptionRequest:
+        return SubscriptionRequest.deserializeBody(reader)
+      case MESSAGE_TYPE.Heartbeat:
+        return Heartbeat.deserializeBody(reader)
       default:
         throw new Error('unhandled message type')
     }
@@ -122,7 +65,7 @@ export class AuthenticationRequest extends Message {
   credentials: Uint8Array
 
   constructor(method: string, credentials: Uint8Array) {
-    super(MessageType.AuthenticationRequest)
+    super(MESSAGE_TYPE.AuthenticationRequest)
     this.method = method
     this.credentials = credentials
   }
@@ -131,13 +74,19 @@ export class AuthenticationRequest extends Message {
     writer.writeString(this.method)
     writer.writeBuffer(this.credentials)
   }
+
+  static deserializeBody(reader: DataReader): AuthenticationRequest {
+    const method = reader.readString()
+    const credentials = reader.readBuffer()
+    return new AuthenticationRequest(method, credentials)
+  }
 }
 
 export class AuthenticationResponse extends Message {
   public clientId: string
 
   constructor(clientId: string) {
-    super(MessageType.AuthenticationResponse)
+    super(MESSAGE_TYPE.AuthenticationResponse)
     this.clientId = clientId
   }
 
@@ -145,7 +94,7 @@ export class AuthenticationResponse extends Message {
     writer.writeString(this.clientId)
   }
 
-  static deserialize(reader: DataReader): AuthenticationResponse {
+  static deserializeBody(reader: DataReader): AuthenticationResponse {
     const clientId = reader.readString()
     return new AuthenticationResponse(clientId)
   }
@@ -163,7 +112,7 @@ export class ForwardedMulticastData extends Message {
     topic: string,
     dataPackets: DataPacket[]
   ) {
-    super(MessageType.ForwardedMulticastData)
+    super(MESSAGE_TYPE.ForwardedMulticastData)
     this.host = host
     this.user = user
     this.topic = topic
@@ -177,7 +126,7 @@ export class ForwardedMulticastData extends Message {
     serializeDataPackets(this.dataPackets, writer)
   }
 
-  static deserialize(reader: DataReader): ForwardedMulticastData {
+  static deserializeBody(reader: DataReader): ForwardedMulticastData {
     const host = reader.readString()
     const user = reader.readString()
     const topic = reader.readString()
@@ -200,7 +149,7 @@ export class ForwardedSubscriptionRequest extends Message {
     topic: string,
     isAdd: boolean
   ) {
-    super(MessageType.ForwardedSubscriptionRequest)
+    super(MESSAGE_TYPE.ForwardedSubscriptionRequest)
     this.host = host
     this.user = user
     this.clientId = clientId
@@ -216,7 +165,7 @@ export class ForwardedSubscriptionRequest extends Message {
     writer.writeBool(this.isAdd)
   }
 
-  static deserialize(reader: DataReader): ForwardedSubscriptionRequest {
+  static deserializeBody(reader: DataReader): ForwardedSubscriptionRequest {
     const host = reader.readString()
     const user = reader.readString()
     const clientId = reader.readString()
@@ -240,7 +189,7 @@ export class ForwardedUnicastData extends Message {
     topic: string,
     dataPackets: DataPacket[]
   ) {
-    super(MessageType.ForwardedUnicastData)
+    super(MESSAGE_TYPE.ForwardedUnicastData)
     this.host = host
     this.user = user
     this.clientId = clientId
@@ -256,7 +205,7 @@ export class ForwardedUnicastData extends Message {
     serializeDataPackets(this.dataPackets, writer)
   }
 
-  static deserialize(reader: DataReader): ForwardedUnicastData {
+  static deserializeBody(reader: DataReader): ForwardedUnicastData {
     const host = reader.readString()
     const user = reader.readString()
     const clientId = reader.readString()
@@ -266,12 +215,30 @@ export class ForwardedUnicastData extends Message {
   }
 }
 
+export class Heartbeat extends Message {
+  public count: bigint
+
+  constructor(count: bigint) {
+    super(MESSAGE_TYPE.Heartbeat)
+    this.count = count
+  }
+
+  protected serializeBody(writer: DataWriter): void {
+    writer.writeUInt64(this.count)
+  }
+
+  static deserializeBody(reader: DataReader): Heartbeat {
+    const count = reader.readUInt64()
+    return new Heartbeat(count)
+  }
+}
+
 export class MulticastData extends Message {
   public topic: string
   public dataPackets: DataPacket[]
 
   constructor(topic: string, dataPackets: DataPacket[]) {
-    super(MessageType.MulticastData)
+    super(MESSAGE_TYPE.MulticastData)
     this.topic = topic
     this.dataPackets = dataPackets
   }
@@ -281,7 +248,7 @@ export class MulticastData extends Message {
     serializeDataPackets(this.dataPackets, writer)
   }
 
-  static deserialize(reader: DataReader): MulticastData {
+  static deserializeBody(reader: DataReader): MulticastData {
     const topic = reader.readString()
     const dataPackets = deserializeDataPackets(reader)
     return new MulticastData(topic, dataPackets)
@@ -293,7 +260,7 @@ export class NotificationRequest extends Message {
   public isAdd: boolean
 
   constructor(pattern: string, isAdd: boolean) {
-    super(MessageType.NotificationRequest)
+    super(MESSAGE_TYPE.NotificationRequest)
     this.pattern = pattern
     this.isAdd = isAdd
   }
@@ -303,7 +270,7 @@ export class NotificationRequest extends Message {
     writer.writeBool(this.isAdd)
   }
 
-  static deserialize(reader: DataReader): NotificationRequest {
+  static deserializeBody(reader: DataReader): NotificationRequest {
     const pattern = reader.readString()
     const isAdd = reader.readBool()
     return new NotificationRequest(pattern, isAdd)
@@ -315,7 +282,7 @@ export class SubscriptionRequest extends Message {
   public isAdd: boolean
 
   constructor(topic: string, isAdd: boolean) {
-    super(MessageType.SubscriptionRequest)
+    super(MESSAGE_TYPE.SubscriptionRequest)
     this.topic = topic
     this.isAdd = isAdd
   }
@@ -325,7 +292,7 @@ export class SubscriptionRequest extends Message {
     writer.writeBool(this.isAdd)
   }
 
-  static deserialize(reader: DataReader): SubscriptionRequest {
+  static deserializeBody(reader: DataReader): SubscriptionRequest {
     const topic = reader.readString()
     const isAdd = reader.readBool()
     return new SubscriptionRequest(topic, isAdd)
@@ -338,7 +305,7 @@ export class UnicastData extends Message {
   public dataPackets: DataPacket[]
 
   constructor(clientId: string, topic: string, dataPackets: DataPacket[]) {
-    super(MessageType.UnicastData)
+    super(MESSAGE_TYPE.UnicastData)
     this.clientId = clientId
     this.topic = topic
     this.dataPackets = dataPackets
@@ -350,7 +317,7 @@ export class UnicastData extends Message {
     serializeDataPackets(this.dataPackets, writer)
   }
 
-  static deserialize(reader: DataReader): UnicastData {
+  static deserializeBody(reader: DataReader): UnicastData {
     const clientId = reader.readString()
     const topic = reader.readString()
     const dataPackets = deserializeDataPackets(reader)

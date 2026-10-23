@@ -1,35 +1,35 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { DataPacket } from './dataPackets'
 import {
   AuthenticationRequest,
   AuthenticationResponse,
-  DataPacket,
   ForwardedMulticastData,
   ForwardedSubscriptionRequest,
   ForwardedUnicastData,
+  Heartbeat,
   Message,
-  MessageType,
+  MESSAGE_TYPE,
   MulticastData,
   NotificationRequest,
   SubscriptionRequest,
   UnicastData
 } from './messages'
-import { DataMessageObj, NotificationObj } from './types'
-import { DataReader } from './Serialization'
+import type { DataMessageObj, HeartbeatObj, NotificationObj } from './types'
 
-export enum ConnectionState {
-  PENDING = 'PENDING',
-  CONNECTING = 'CONNECTING',
-  OPEN = 'OPEN',
-  CLOSING = 'CLOSING',
-  CLOSED = 'CLOSED'
-}
+export type ConnectionState = (
+  'PENDING' |
+  'CONNECTING' |
+  'OPEN' |
+  'CLOSING' |
+  'CLOSED'
+)
 
-export enum AuthenticationState {
-  PENDING = 'PENDING',
-  REQUEST = 'REQUEST',
-  SUCCESS = 'SUCCESS',
-  FAILURE = 'FAILURE'
-}
+export type AuthenticationState = (
+  'PENDING' |
+  'REQUEST' |
+  'SUCCESS' |
+  'FAILURE'
+)
 
 export type Options = {
   credentials?: [string, string]
@@ -53,6 +53,7 @@ export type WebHookOutputs = {
   authenticationState: AuthenticationState
   data: DataMessageObj | null
   notification: NotificationObj | null
+  heartbeat: HeartbeatObj | null
   send: Send
   publish: Publish
   subscribe: Subscribe
@@ -73,20 +74,22 @@ export const useSquawkbus = (
 ): WebHookOutputs => {
   const webSocketRef = useRef<WebSocket | null>(null)
   const [connectionState, setConnectionState] = useState<ConnectionState>(
-    ConnectionState.PENDING
+    'PENDING'
   )
   const [authenticationState, setAuthenticationState] =
-    useState<AuthenticationState>(AuthenticationState.PENDING)
+    useState<AuthenticationState>('PENDING')
   const [clientId, setClientId] = useState<string | null>(null)
   const [data, setData] = useState<DataMessageObj | null>(null)
-  const [notification, stetNotification] = useState<NotificationObj | null>(
+  const [notification, setNotification] = useState<NotificationObj | null>(
     null
   )
+  const [heartbeat, setHeartbeat] = useState<HeartbeatObj | null>(null)
 
   const send = useCallback(
     (clientId: string, topic: string, dataPackets: DataPacket[]) => {
       const message = new UnicastData(clientId, topic, dataPackets)
-      webSocketRef.current?.send(message.serialize())
+      const buf = message.serialize()
+      webSocketRef.current?.send(buf.buffer)
     },
     []
   )
@@ -118,8 +121,8 @@ export const useSquawkbus = (
 
   const handleDispose = useCallback(() => {
     if (
-      connectionState === ConnectionState.CONNECTING ||
-      connectionState === ConnectionState.OPEN
+      connectionState === 'CONNECTING' ||
+      connectionState === 'OPEN'
     ) {
       webSocketRef.current?.close()
     }
@@ -129,14 +132,14 @@ export const useSquawkbus = (
     (event: Event) => {
       console.log(`open: ${event.type}`)
 
-      setConnectionState(ConnectionState.OPEN)
+      setConnectionState('OPEN')
 
       const authenticationRequest = new AuthenticationRequest(
         options?.credentials ? 'basic' : 'none',
         createAuthenticationToken(options?.credentials)
       )
 
-      setAuthenticationState(AuthenticationState.REQUEST)
+      setAuthenticationState('REQUEST')
       webSocketRef.current?.send(authenticationRequest.serialize())
     },
     [webSocketRef, options]
@@ -144,31 +147,30 @@ export const useSquawkbus = (
 
   const handleClose = useCallback((event: Event) => {
     console.log(`close: ${event.type}`)
-    setConnectionState(ConnectionState.CLOSED)
+    setConnectionState('CLOSED')
   }, [])
 
   // Error handler: error is a special type of close.
   const handleError = useCallback((event: Event) => {
     console.log(`close: ${event.type}`)
-    setConnectionState(ConnectionState.CLOSED)
+    setConnectionState('CLOSED')
   }, [])
 
   // Message handler.
   const handleMessage = useCallback((event: MessageEvent) => {
     console.log(`message: ${event.type}`)
 
-    const reader = new DataReader(new Uint8Array(event.data))
-    const message = Message.deserialize(reader)
+    const message = Message.deserialize(new Uint8Array(event.data))
 
     switch (message.messageType) {
-      case MessageType.AuthenticationResponse:
+      case MESSAGE_TYPE.AuthenticationResponse:
         {
           const msg = message as AuthenticationResponse
           setClientId(msg.clientId)
-          setAuthenticationState(AuthenticationState.SUCCESS)
+          setAuthenticationState('SUCCESS')
         }
         break
-      case MessageType.ForwardedMulticastData:
+      case MESSAGE_TYPE.ForwardedMulticastData:
         {
           const msg = message as ForwardedMulticastData
           setData({
@@ -179,7 +181,7 @@ export const useSquawkbus = (
           })
         }
         break
-      case MessageType.ForwardedUnicastData:
+      case MESSAGE_TYPE.ForwardedUnicastData:
         {
           const msg = message as ForwardedUnicastData
           setData({
@@ -190,15 +192,23 @@ export const useSquawkbus = (
           })
         }
         break
-      case MessageType.ForwardedSubscriptionRequest:
+      case MESSAGE_TYPE.ForwardedSubscriptionRequest:
         {
           const msg = message as ForwardedSubscriptionRequest
-          stetNotification({
+          setNotification({
             host: msg.host,
             user: msg.user,
             clientId: msg.clientId,
             topic: msg.topic,
             isAdd: msg.isAdd
+          })
+        }
+        break
+      case MESSAGE_TYPE.Heartbeat:
+        {
+          const msg = message as Heartbeat
+          setHeartbeat({
+            count: msg.count
           })
         }
         break
@@ -209,7 +219,7 @@ export const useSquawkbus = (
   }, [])
 
   useEffect(() => {
-    if (connectionState !== ConnectionState.PENDING) {
+    if (connectionState !== 'PENDING') {
       return
     }
 
@@ -219,7 +229,7 @@ export const useSquawkbus = (
     webSocketRef.current.onclose = handleClose
     webSocketRef.current.onerror = handleError
     webSocketRef.current.onmessage = handleMessage
-    setConnectionState(ConnectionState.CONNECTING)
+    setConnectionState('CONNECTING')
 
     return handleDispose
   }, [
@@ -239,6 +249,7 @@ export const useSquawkbus = (
     authenticationState,
     data,
     notification,
+    heartbeat,
     send,
     publish,
     subscribe,
