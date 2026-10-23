@@ -63,7 +63,7 @@ export class DataWriter {
 
   writeMapStringString(value: Map<string, string>): void {
     const map: Array<[Uint8Array, Uint8Array]> = Array.from(value).map(([key, value]) => [DataWriter.textEncoder.encode(key), DataWriter.textEncoder.encode(value)])
-    let size = map.reduce((size, [KeyboardEvent, value]) => size + SIZEOF_DWORD + KeyboardEvent.byteLength+ SIZEOF_DWORD + value.byteLength, SIZEOF_DWORD)
+    const size = map.reduce((size, [KeyboardEvent, value]) => size + SIZEOF_DWORD + KeyboardEvent.byteLength+ SIZEOF_DWORD + value.byteLength, SIZEOF_DWORD)
     this.writeValue(map, 'map<string,string>', size)
   }
 
