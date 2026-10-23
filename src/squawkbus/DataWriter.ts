@@ -45,11 +45,11 @@ export class DataWriter {
   }
 
   writeInt64(value: bigint): void {
-    this.writeValue(value, 'i64', SIZEOF_DWORD)
+    this.writeValue(value, 'i64', SIZEOF_QWORD)
   }
 
   writeUInt64(value: bigint): void {
-    this.writeValue(value, 'u64', SIZEOF_DWORD)
+    this.writeValue(value, 'u64', SIZEOF_QWORD)
   }
 
   writeString(value: string): void {
